@@ -1,0 +1,368 @@
+basePath: /api/v1
+definitions:
+  transaction.Transaction:
+    properties:
+      amount:
+        type: number
+      datetime:
+        type: string
+      id:
+        type: integer
+      type:
+        type: string
+      walletId:
+        type: integer
+    type: object
+  user.User:
+    properties:
+      id:
+        type: integer
+      username:
+        type: string
+      walletId:
+        type: integer
+    type: object
+  wallet.Wallet:
+    properties:
+      id:
+        type: integer
+      money:
+        type: number
+    type: object
+  web.errorResponse:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Small project to manage your finances
+  title: FinanceAPI
+  version: "0.1"
+paths:
+  /users:
+    get:
+      description: Show an array of users
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/user.User'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+      summary: Get all users
+      tags:
+      - User
+    post:
+      description: Create user information
+      parameters:
+      - description: User
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/user.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+      summary: Create user information
+      tags:
+      - User
+  /users/{id}:
+    delete:
+      description: Delete a user from db
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+      summary: Delete a user
+      tags:
+      - User
+    get:
+      description: Get just one user by his ID
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+      summary: Show a user by id
+      tags:
+      - User
+    post:
+      description: Update user information by his id
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+      summary: Update user information
+      tags:
+      - User
+  /wallets:
+    get:
+      description: Get all wallets
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/wallet.Wallet'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+      summary: Show an array of wallets
+      tags:
+      - Wallet
+  /wallets/{id}:
+    delete:
+      description: Delete a wallet from db
+      parameters:
+      - description: Wallet ID
+        in: path
+        name: walletId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+      summary: Delete a wallet
+      tags:
+      - Wallet
+    get:
+      description: Get just one wallet by his ID
+      parameters:
+      - description: Wallet ID
+        in: path
+        name: walletId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/wallet.Wallet'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+      summary: Show a wallet by id
+      tags:
+      - Wallet
+  /wallets/{id}/addMoney:
+    patch:
+      description: Add the specified money to a wallet by his ID
+      parameters:
+      - description: Wallet ID
+        in: path
+        name: walletId
+        required: true
+        type: integer
+      - description: Transaction
+        in: body
+        name: transaction
+        required: true
+        schema:
+          $ref: '#/definitions/transaction.Transaction'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/wallet.Wallet'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+      summary: Add money to a wallet by his ID
+      tags:
+      - Wallet
+  /wallets/{id}/substractMoney:
+    patch:
+      description: Add the specified money to a wallet by his ID
+      parameters:
+      - description: Wallet ID
+        in: path
+        name: walletId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/wallet.Wallet'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+      summary: Substract money from a wallet
+      tags:
+      - Wallet
+  /wallets/{id}/transactions:
+    get:
+      description: Get a list of transactions of a wallet
+      parameters:
+      - description: Transaction ID
+        in: query
+        name: transactionId
+        type: integer
+      - description: Wallet ID
+        in: path
+        name: walletId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/transaction.Transaction'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/web.errorResponse'
+      summary: Show an array of transactions of a wallet
+      tags:
+      - Wallet
+swagger: "2.0"
