@@ -16,6 +16,7 @@ type repository struct {
 
 type Repository interface {
 	GetByUsername(ctx context.Context, username string) (User, error)
+	GetByID(ctx context.Context, id uint64) (User, error)
 	Create(ctx context.Context, user User) error
 	Delete(id int) error
 	Update(id int, user User) (int, error)
@@ -36,6 +37,28 @@ func (r *repository) GetByUsername(ctx context.Context, username string) (User, 
 	defer stmt.Close()
 
 	row := stmt.QueryRowContext(ctx, username)
+
+	u := User{}
+	err = row.Scan(&u.ID, &u.Username, &u.Password, &u.Role)
+	if err != nil {
+		switch err {
+		case sql.ErrNoRows:
+			err = ErrNotFound
+		}
+		return User{}, err
+	}
+
+	return u, nil
+}
+
+func (r *repository) GetByID(ctx context.Context, id uint64) (User, error) {
+	stmt, err := r.db.PrepareContext(ctx, getUserByIDQuery)
+	if err != nil {
+		return User{}, err
+	}
+	defer stmt.Close()
+
+	row := stmt.QueryRowContext(ctx, id)
 
 	u := User{}
 	err = row.Scan(&u.ID, &u.Username, &u.Password, &u.Role)

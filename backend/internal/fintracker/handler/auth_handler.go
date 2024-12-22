@@ -7,8 +7,9 @@ import (
 
 	"github.com/TomyPY/FinTracker/internal/fintracker/auth"
 	"github.com/TomyPY/FinTracker/internal/fintracker/user"
-	"github.com/TomyPY/FinTracker/platform/encrypt"
+	"github.com/TomyPY/FinTracker/internal/platform/encrypt"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type LoginRequest struct {
@@ -18,6 +19,11 @@ type LoginRequest struct {
 
 type LoginResponse struct {
 	AccessToken string `json:"access_token"`
+}
+
+type MeResponse struct {
+	User        user.User `json:"user"`
+	AccessToken string    `json:"access_token"`
 }
 
 func LoginHandler(repo user.Repository, a auth.Authenticator) gin.HandlerFunc {
@@ -49,7 +55,7 @@ func LoginHandler(repo user.Repository, a auth.Authenticator) gin.HandlerFunc {
 			return
 		}
 
-		tokens, err := a.Create(&user)
+		tokens, err := a.Create(ctx, &user)
 		if err != nil {
 			slog.Error("error creathing tokens", "error", err)
 			ctx.JSON(http.StatusBadRequest, "bad_request")
@@ -64,24 +70,62 @@ func LoginHandler(repo user.Repository, a auth.Authenticator) gin.HandlerFunc {
 	}
 }
 
-func RefreshHandler(a auth.Authenticator) gin.HandlerFunc {
+func MeHandler(a auth.Authenticator, repo user.Repository) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		token, err := ctx.Cookie("refresh_token")
 		if err != nil {
 			ctx.JSON(http.StatusUnauthorized, "unauthorized")
 			return
 		}
-		slog.Info("Refreshing token", "token", token)
+		slog.Info("Refreshing token on me", "token", token)
 
-		accessToken, err := a.Refresh(ctx, token)
+		newToken, err := a.Refresh(ctx, token)
 		if err != nil {
 			slog.Error("error refreshing token", "error", err)
+			ctx.JSON(http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		verifiedToken, err := a.Auth(newToken)
+		if err != nil {
+			slog.Error("error refreshing token", "error", err)
+			ctx.JSON(http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		id := verifiedToken.Claims.(jwt.MapClaims)["sub"].(float64)
+		userID := uint64(id)
+
+		user, err := repo.GetByID(ctx, userID)
+		if err != nil {
+			slog.Error("error getting user", "error", err)
 			ctx.JSON(http.StatusInternalServerError, "internal server error")
 			return
 		}
 
-		ctx.JSON(http.StatusAccepted, LoginResponse{
-			AccessToken: accessToken,
+		ctx.JSON(http.StatusOK, MeResponse{
+			User:        user,
+			AccessToken: newToken,
 		})
+	}
+}
+
+func LogoutHandler(a auth.Authenticator) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		userID, exists := ctx.Get("user_id")
+		if !exists {
+			ctx.JSON(http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		slog.Info("Processing logout", "user_id", userID)
+
+		err := a.Invalidate(ctx, userID.(uint64))
+		if err != nil {
+			slog.Error("error deleting token", "error", err)
+			ctx.JSON(http.StatusInternalServerError, "internal server error")
+			return
+		}
+
+		ctx.JSON(http.StatusOK, "OK")
 	}
 }

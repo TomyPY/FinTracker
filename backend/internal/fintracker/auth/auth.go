@@ -9,7 +9,7 @@ import (
 
 	"github.com/TomyPY/FinTracker/internal/fintracker/session"
 	"github.com/TomyPY/FinTracker/internal/fintracker/user"
-	"github.com/TomyPY/FinTracker/platform/encrypt"
+
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -22,15 +22,22 @@ var (
 	ErrUnauthorized = errors.New("unauthorized")
 )
 
+var (
+	subClaim        = "sub"
+	RoleClaim       = "role"
+	FinTrackerClaim = "fin-tracker"
+)
+
 type Tokens struct {
 	AccessToken  string
 	RefreshToken string
 }
 
 type Authenticator interface {
-	Create(user *user.User) (Tokens, error)
-	Auth(t string) error
-	Refresh(ctx context.Context, t string) (string, error)
+	Create(ctx context.Context, user *user.User) (Tokens, error)
+	Auth(t string) (*jwt.Token, error)
+	Refresh(ctx context.Context, token string) (string, error)
+	Invalidate(ctx context.Context, userID uint64) error
 }
 
 type auth struct {
@@ -49,7 +56,7 @@ func NewAuthenticator(atSecret, rfsSecret, encryptToken string, repo session.Rep
 	}
 }
 
-func (a *auth) Auth(t string) error {
+func (a *auth) Auth(t string) (*jwt.Token, error) {
 	token, err := jwt.Parse(t, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, http.ErrAbortHandler
@@ -59,17 +66,18 @@ func (a *auth) Auth(t string) error {
 
 	// Check if token is valid
 	if err != nil || !token.Valid {
-		return ErrUnauthorized
+		return nil, ErrUnauthorized
 	}
 
-	return nil
+	return token, nil
 }
 
-func (a *auth) Create(user *user.User) (Tokens, error) {
+func (a *auth) Create(ctx context.Context, user *user.User) (Tokens, error) {
+
 	atClaims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":  user.ID, // Subject (user identifier)
 		"role": user.Role,
-		"iss":  "fin-tracker",                                         // Issuer
+		"iss":  FinTrackerClaim,                                       // Issuer
 		"exp":  time.Now().Unix() + int64(ExpirationTimeAT.Seconds()), // Expiration time
 		"iat":  time.Now().Unix(),                                     // Issued at
 	})
@@ -79,12 +87,10 @@ func (a *auth) Create(user *user.User) (Tokens, error) {
 		return Tokens{}, err
 	}
 
-	slog.Info("accessToken", "at", accessToken)
-
 	rfsClaims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":  user.ID, // Subject (user identifier)
 		"role": user.Role,
-		"iss":  "fin-tracker",                                         // Issuer
+		"iss":  FinTrackerClaim,                                       // Issuer
 		"exp":  time.Now().Unix() + int64(ExpirationTimeRT.Seconds()), // Expiration time
 		"iat":  time.Now().Unix(),                                     // Issued at
 	})
@@ -94,13 +100,8 @@ func (a *auth) Create(user *user.User) (Tokens, error) {
 		return Tokens{}, err
 	}
 
-	encryptedToken, err := encrypt.EncryptToken(refreshToken, []byte(a.encryptToken))
-	if err != nil {
-		return Tokens{}, err
-	}
-
-	err = a.session.Create(session.Session{
-		Token:  encryptedToken,
+	err = a.session.Create(ctx, session.Session{
+		Token:  refreshToken,
 		UserID: user.ID,
 	})
 	if err != nil {
@@ -113,46 +114,54 @@ func (a *auth) Create(user *user.User) (Tokens, error) {
 	}, nil
 }
 
-func (a *auth) Refresh(ctx context.Context, token string) (string, error) {
+func (a *auth) Refresh(ctx context.Context, userToken string) (string, error) {
 
-	encryptedToken, err := encrypt.EncryptToken(token, []byte(a.encryptToken))
+	session, err := a.session.Get(ctx, userToken)
 	if err != nil {
 		return "", err
 	}
 
-	slog.Info("encrypted Token", "token", encryptedToken)
-
-	_, err = a.session.Get(ctx, encryptedToken)
-	if err != nil {
-		return "", err
+	if session.Token != userToken {
+		slog.Error("error different refresh_token", "error", err)
+		return "", ErrUnauthorized
 	}
 
-	t, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
+	if !session.IsValid {
+		slog.Error("error invalid refresh_token", "error", err)
+		return "", ErrUnauthorized
+	}
+
+	t, err := jwt.Parse(userToken, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, http.ErrAbortHandler
 		}
-		return []byte(a.atSecret), nil
+		return []byte(a.rfsSecret), nil
 	})
 
 	// Check if token is valid
 	if err != nil || !t.Valid {
+		slog.Error("error token invalid", "error", err)
 		return "", ErrUnauthorized
 	}
 
 	cl := t.Claims.(jwt.MapClaims)
 
 	atClaims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub":  cl["user_id"], // Subject (user identifier)
-		"role": cl["role"],
-		"iss":  "fin-tracker",                                         // Issuer
+		"sub":  cl[subClaim], // Subject (user identifier)
+		"role": cl[RoleClaim],
+		"iss":  FinTrackerClaim,                                       // Issuer
 		"exp":  time.Now().Unix() + int64(ExpirationTimeAT.Seconds()), // Expiration time
 		"iat":  time.Now().Unix(),                                     // Issued at
 	})
 
-	accessToken, err := atClaims.SignedString(a.atSecret)
+	accessToken, err := atClaims.SignedString([]byte(a.atSecret))
 	if err != nil {
 		return "", err
 	}
 
 	return accessToken, nil
+}
+
+func (a *auth) Invalidate(ctx context.Context, userID uint64) error {
+	return a.session.Invalidate(ctx, userID)
 }

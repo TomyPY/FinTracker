@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/TomyPY/FinTracker/internal/fintracker/user"
-	"github.com/TomyPY/FinTracker/platform/encrypt"
+	"github.com/TomyPY/FinTracker/internal/platform/encrypt"
 	"github.com/gin-gonic/gin"
 )
 

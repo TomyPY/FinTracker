@@ -7,7 +7,7 @@ import (
 	"github.com/TomyPY/FinTracker/internal/fintracker/transaction"
 	"github.com/TomyPY/FinTracker/internal/fintracker/user"
 	"github.com/TomyPY/FinTracker/internal/fintracker/wallet"
-	"github.com/TomyPY/FinTracker/platform/database"
+	"github.com/TomyPY/FinTracker/internal/platform/database"
 )
 
 type Dependencies struct {
