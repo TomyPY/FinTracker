@@ -2,15 +2,13 @@ package database
 
 import (
 	"database/sql"
-	"fmt"
 
-	"github.com/TomyPY/FinTracker/cmd/server/config"
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func NewDb(cfg *config.Config) (*sql.DB, error) {
+func NewDb(conn string) (*sql.DB, error) {
 
-	db, err := sql.Open("mysql", buildConnectionString(cfg))
+	db, err := sql.Open("mysql", conn)
 	if err != nil {
 		return nil, err
 	}
@@ -20,10 +18,4 @@ func NewDb(cfg *config.Config) (*sql.DB, error) {
 	}
 
 	return db, nil
-}
-
-func buildConnectionString(cfg *config.Config) string {
-	conn := fmt.Sprintf("%s:%s@tcp(%s)/%s", cfg.DB.UsernameEnv, cfg.DB.PasswordEnv, cfg.DB.HostEnv, cfg.DB.NameEnv)
-	fmt.Println("conn:", conn)
-	return conn
 }

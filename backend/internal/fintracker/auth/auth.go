@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/TomyPY/FinTracker/internal/fintracker/encrypt"
 	"github.com/TomyPY/FinTracker/internal/fintracker/session"
 	"github.com/TomyPY/FinTracker/internal/fintracker/user"
 
@@ -41,18 +42,18 @@ type Authenticator interface {
 }
 
 type auth struct {
-	session      session.Repository
-	atSecret     string
-	rfsSecret    string
-	encryptToken string
+	session   session.Repository
+	atSecret  string
+	rfsSecret string
+	encrypter encrypt.Encrypter
 }
 
-func NewAuthenticator(atSecret, rfsSecret, encryptToken string, repo session.Repository) Authenticator {
+func NewAuthenticator(atSecret, rfsSecret string, enc encrypt.Encrypter, repo session.Repository) Authenticator {
 	return &auth{
-		session:      repo,
-		atSecret:     atSecret,
-		rfsSecret:    rfsSecret,
-		encryptToken: encryptToken,
+		session:   repo,
+		atSecret:  atSecret,
+		rfsSecret: rfsSecret,
+		encrypter: enc,
 	}
 }
 
@@ -100,8 +101,13 @@ func (a *auth) Create(ctx context.Context, user *user.User) (Tokens, error) {
 		return Tokens{}, err
 	}
 
+	rtEncrypted, err := a.encrypter.EncryptToken(refreshToken)
+	if err != nil {
+		return Tokens{}, err
+	}
+
 	err = a.session.Create(ctx, session.Session{
-		Token:  refreshToken,
+		Token:  rtEncrypted,
 		UserID: user.ID,
 	})
 	if err != nil {
@@ -121,13 +127,13 @@ func (a *auth) Refresh(ctx context.Context, userToken string) (string, error) {
 		return "", err
 	}
 
-	if session.Token != userToken {
-		slog.Error("error different refresh_token", "error", err)
-		return "", ErrUnauthorized
+	sessTkn, err := a.encrypter.DecryptToken(session.Token)
+	if err != nil {
+		return "", err
 	}
 
-	if !session.IsValid {
-		slog.Error("error invalid refresh_token", "error", err)
+	if sessTkn != userToken || !session.IsValid {
+		slog.Error("invalid token", "error", err)
 		return "", ErrUnauthorized
 	}
 

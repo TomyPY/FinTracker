@@ -4,8 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/TomyPY/FinTracker/internal/fintracker/encrypt"
 	"github.com/TomyPY/FinTracker/internal/fintracker/user"
-	"github.com/TomyPY/FinTracker/internal/platform/encrypt"
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,7 +14,7 @@ type UserRegisterRequest struct {
 	Password string `json:"password"`
 }
 
-func UserRegisterHandler(repo user.Repository) gin.HandlerFunc {
+func UserRegisterHandler(repo user.Repository, enc encrypt.Encrypter) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var req UserRegisterRequest
 		err := ctx.ShouldBindJSON(&req)
@@ -24,7 +24,7 @@ func UserRegisterHandler(repo user.Repository) gin.HandlerFunc {
 		}
 		slog.Info("creating user", "req", req)
 
-		hashedPassword, err := encrypt.HashPassword(req.Password)
+		hashedPassword, err := enc.HashPassword(req.Password)
 		if err != nil {
 			slog.Error("error encrypting password", "error", err)
 			ctx.JSON(http.StatusInternalServerError, "internal server error")

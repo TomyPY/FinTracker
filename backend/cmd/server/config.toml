@@ -1,0 +1,17 @@
+[Server.production]
+db.name = "fintracker"
+db.host = "database"
+db.password-env = "PASSWORD_DB"
+db.username = "root"
+secrets.access-token-env = "ACCESS_TOKEN_ENV"
+secrets.refresh-token-env = "REFRESH_TOKEN_ENV"
+secrets.encrypt-token-env = "ENCRYPT_TOKEN_ENV"
+
+[Server.development]
+db.name = "fintracker"
+db.host = "localhost:3306"
+db.password-env = "DB_PASSWORD_ENV"
+db.username = "root"
+secrets.access-token-env = "ACCESS_TOKEN_ENV"
+secrets.refresh-token-env = "REFRESH_TOKEN_ENV"
+secrets.encrypt-token-env = "ENCRYPT_TOKEN_ENV"

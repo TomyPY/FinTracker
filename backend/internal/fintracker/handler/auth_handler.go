@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/TomyPY/FinTracker/internal/fintracker/auth"
+	"github.com/TomyPY/FinTracker/internal/fintracker/encrypt"
 	"github.com/TomyPY/FinTracker/internal/fintracker/user"
-	"github.com/TomyPY/FinTracker/internal/platform/encrypt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -26,7 +26,7 @@ type MeResponse struct {
 	AccessToken string    `json:"access_token"`
 }
 
-func LoginHandler(repo user.Repository, a auth.Authenticator) gin.HandlerFunc {
+func LoginHandler(repo user.Repository, a auth.Authenticator, enc encrypt.Encrypter) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var req LoginRequest
 		err := ctx.ShouldBindJSON(&req)
@@ -44,7 +44,7 @@ func LoginHandler(repo user.Repository, a auth.Authenticator) gin.HandlerFunc {
 		}
 		slog.Info("db user", "user", user)
 
-		err = encrypt.VerifyPassword(req.Password, user.Password)
+		err = enc.VerifyPassword(req.Password, user.Password)
 		if err != nil {
 			slog.Error("error verifying password", "error", err)
 			if errors.Is(err, encrypt.ErrInvalidPassword) {

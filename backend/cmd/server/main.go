@@ -1,9 +1,8 @@
 package main
 
 import (
-	"log/slog"
+	"os"
 
-	"github.com/TomyPY/FinTracker/cmd/server/config"
 	"github.com/TomyPY/FinTracker/internal/fintracker/handler"
 	"github.com/TomyPY/FinTracker/internal/fintracker/middleware"
 	"github.com/TomyPY/FinTracker/internal/platform/log"
@@ -29,11 +28,13 @@ func run() error {
 
 	log.SetLog()
 
-	cfg := config.GetConfig()
+	cfg, err := NewConfig(os.Getenv("APP_ENV"))
+	if err != nil {
+		return err
+	}
 
 	deps, err := BuildDependencies(cfg)
 	if err != nil {
-		slog.Error("config error", "error", err)
 		return err
 	}
 
@@ -42,18 +43,13 @@ func run() error {
 
 	api := router.Group("/api")
 
-	api.POST("/user/register", handler.UserRegisterHandler(deps.userRepo))
-	api.POST("/user/auth", handler.LoginHandler(deps.userRepo, deps.auth))
-
 	userGroup := api.Group("/user")
+	userGroup.POST("/user/register", handler.UserRegisterHandler(deps.userRepo, deps.encrypter))
+	userGroup.POST("/user/auth", handler.LoginHandler(deps.userRepo, deps.auth, deps.encrypter))
 	userGroup.GET("/me", handler.MeHandler(deps.auth, deps.userRepo))
 
 	authGroup := userGroup.Group("/auth", middleware.AuthMiddleware(deps.auth))
 	authGroup.POST("/logout", handler.LogoutHandler(deps.auth))
-
-	api.GET("/protected", middleware.AuthMiddleware(deps.auth), func(ctx *gin.Context) {
-		ctx.JSON(200, "OK")
-	})
 
 	if err := router.Run(":8080"); err != nil {
 		return err
